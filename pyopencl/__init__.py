@@ -1771,7 +1771,12 @@ def enqueue_copy(queue, dest, src, **kwargs):
             src = SVM(src)
 
         is_blocking = kwargs.pop("is_blocking", True)
-        return _cl._enqueue_svm_memcpy(queue, is_blocking, dest, src, **kwargs)
+
+        # FIXME POCL workaround
+        evt = _cl._enqueue_svm_memcpy(queue, False, dest, src, **kwargs)
+        if is_blocking:
+            evt.wait()
+        return evt
 
     else:
         # assume to-host
@@ -1800,8 +1805,13 @@ def enqueue_copy(queue, dest, src, **kwargs):
             # from svm
             # dest is not a SVM instance, otherwise we'd be in the branch above
             is_blocking = kwargs.pop("is_blocking", True)
-            return _cl._enqueue_svm_memcpy(
-                    queue, is_blocking, SVM(dest), src, **kwargs)
+
+            evt = _cl._enqueue_svm_memcpy(queue, False, SVM(dest), src, **kwargs)
+            # FIXME: POCL workaround
+            if is_blocking:
+                evt.wait()
+            return evt
+
         else:
             # assume from-host
             raise TypeError("enqueue_copy cannot perform host-to-host transfers")
