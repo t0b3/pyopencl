@@ -1,0 +1,15 @@
+[build-system]
+requires = [
+  "setuptools>=42",
+  "wheel",
+  "scikit-build",
+  "cmake>=3.17",
+  "numpy",
+
+  # currently (2022-04-08) released 0.0.2 does not support iterators
+  # This is a custom package of 09a5f4a50eb3f6e89e6fc2109094e2459244b85f plus a few branches.
+  "nanobind @ https://tiker.net/tmp/nanobind-0.0.2.tar.gz#sha256=2d68d43e945e1a852c37af94491fbdf2688d5a32258eb8ce4e0f7766b88017a0",
+
+  "ninja; platform_system!='Windows'"
+]
+build-backend = "setuptools.build_meta"

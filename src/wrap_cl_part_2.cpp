@@ -74,7 +74,7 @@ using namespace pyopencl;
 
 
 
-void pyopencl_expose_part_2(py::module &m)
+void pyopencl_expose_part_2(py::module_ &m)
 {
   // {{{ image
 
@@ -98,17 +98,18 @@ void pyopencl_expose_part_2(py::module &m)
     typedef image cls;
     py::class_<cls, memory_object>(m, "Image", py::dynamic_attr())
       .def(
-          py::init(
-            [](
-              context const &ctx,
-              cl_mem_flags flags,
-              cl_image_format const &fmt,
-              py::sequence shape,
-              py::sequence pitches,
-              py::object buffer)
-            {
-              return create_image(ctx, flags, fmt, shape, pitches, buffer);
-            }),
+          "__init__",
+          [](
+            cls *self,
+            context const &ctx,
+            cl_mem_flags flags,
+            cl_image_format const &fmt,
+            py::sequence shape,
+            py::sequence pitches,
+            py::object buffer)
+          {
+            return create_image(self, ctx, flags, fmt, shape, pitches, buffer);
+          },
           py::arg("context"),
           py::arg("flags"),
           py::arg("format"),
@@ -118,16 +119,17 @@ void pyopencl_expose_part_2(py::module &m)
           )
 #if PYOPENCL_CL_VERSION >= 0x1020
       .def(
-          py::init(
-            [](
-              context const &ctx,
-              cl_mem_flags flags,
-              cl_image_format const &fmt,
-              cl_image_desc &desc,
-              py::object buffer)
-            {
-              return create_image_from_desc(ctx, flags, fmt, desc, buffer);
-            }),
+          "__init__",
+          [](
+            cls *self,
+            context const &ctx,
+            cl_mem_flags flags,
+            cl_image_format const &fmt,
+            cl_image_desc &desc,
+            py::object buffer)
+          {
+            create_image_from_desc(self, ctx, flags, fmt, desc, buffer);
+          },
           py::arg("context"),
           py::arg("flags"),
           py::arg("format"),
@@ -143,11 +145,11 @@ void pyopencl_expose_part_2(py::module &m)
     typedef cl_image_format cls;
     py::class_<cls>(m, "ImageFormat")
       .def(
-          py::init(
-            [](cl_channel_order ord, cl_channel_type tp)
-            {
-              return make_image_format(ord, tp);
-            }))
+          "__init__",
+          [](cls *self, cl_channel_order ord, cl_channel_type tp)
+          {
+            set_image_format(self, ord, tp);
+          })
       .def_readwrite("channel_order", &cls::image_channel_order)
       .def_readwrite("channel_data_type", &cls::image_channel_data_type)
       .def_property_readonly("channel_count", &get_image_format_channel_count)
@@ -229,16 +231,17 @@ void pyopencl_expose_part_2(py::module &m)
     py::class_<cls, memory_object>(m, "Pipe", py::dynamic_attr())
 #if PYOPENCL_CL_VERSION >= 0x2000
       .def(
-          py::init(
-            [](
-              context const &ctx,
-              cl_mem_flags flags,
-              cl_uint pipe_packet_size,
-              cl_uint pipe_max_packets,
-              py::sequence py_props)
-            {
-              return create_pipe(ctx, flags, pipe_packet_size, pipe_max_packets, py_props);
-            }),
+          "__init__",
+          [](
+            cls *self,
+            context const &ctx,
+            cl_mem_flags flags,
+            cl_uint pipe_packet_size,
+            cl_uint pipe_max_packets,
+            py::sequence py_props)
+          {
+            create_pipe(self, ctx, flags, pipe_packet_size, pipe_max_packets, py_props);
+          },
           py::arg("context"),
           py::arg("flags"),
           py::arg("packet_size"),
@@ -258,7 +261,7 @@ void pyopencl_expose_part_2(py::module &m)
     py::class_<cls>(m, "MemoryMap", py::dynamic_attr())
       .def("release", &cls::release,
           py::arg("queue").none(true)=nullptr,
-          py::arg("wait_for")=py::none()
+          py::arg("wait_for").none(true)=py::none()
           )
       ;
   }
@@ -273,8 +276,8 @@ void pyopencl_expose_part_2(py::module &m)
       py::arg("shape"),
       py::arg("dtype"),
       py::arg("order")="C",
-      py::arg("strides")=py::none(),
-      py::arg("wait_for")=py::none(),
+      py::arg("strides").none(true)=py::none(),
+      py::arg("wait_for").none(true)=py::none(),
       py::arg("is_blocking")=true);
   m.def("enqueue_map_image", enqueue_map_image,
       py::arg("queue"),
@@ -285,8 +288,8 @@ void pyopencl_expose_part_2(py::module &m)
       py::arg("shape"),
       py::arg("dtype"),
       py::arg("order")="C",
-      py::arg("strides")=py::none(),
-      py::arg("wait_for")=py::none(),
+      py::arg("strides").none(true)=py::none(),
+      py::arg("wait_for").none(true)=py::none(),
       py::arg("is_blocking")=true);
 #endif
 
@@ -311,8 +314,7 @@ void pyopencl_expose_part_2(py::module &m)
           ":returns: a :class:`pyopencl.Event`\n\n"
           "|std-enqueue-blurb|")
       .def("_ptr_as_int", &cls::ptr_as_int)
-      .def(py::self == py::self)
-      .def(py::self != py::self)
+      PYOPENCL_EXPOSE_EQUALITY_TESTS
       .def("__hash__", &cls::ptr_as_int)
       ;
   }
@@ -322,15 +324,15 @@ void pyopencl_expose_part_2(py::module &m)
       py::arg("is_blocking"),
       py::arg("dst"),
       py::arg("src"),
-      py::arg("wait_for")=py::none()
+      py::arg("wait_for").none(true)=py::none()
       );
 
   m.def("_enqueue_svm_memfill", enqueue_svm_memfill,
       py::arg("queue"),
       py::arg("dst"),
       py::arg("pattern"),
-      py::arg("byte_count")=py::none(),
-      py::arg("wait_for")=py::none()
+      py::arg("byte_count").none(true)=py::none(),
+      py::arg("wait_for").none(true)=py::none()
       );
 
   m.def("_enqueue_svm_map", enqueue_svm_map,
@@ -338,13 +340,13 @@ void pyopencl_expose_part_2(py::module &m)
       py::arg("is_blocking"),
       py::arg("flags"),
       py::arg("svm"),
-      py::arg("wait_for")=py::none()
+      py::arg("wait_for").none(true)=py::none()
       );
 
   m.def("_enqueue_svm_unmap", enqueue_svm_unmap,
       py::arg("queue"),
       py::arg("svm"),
-      py::arg("wait_for")=py::none()
+      py::arg("wait_for").none(true)=py::none()
       );
 #endif
 
@@ -352,8 +354,8 @@ void pyopencl_expose_part_2(py::module &m)
   m.def("_enqueue_svm_migrate_mem", enqueue_svm_migratemem,
       py::arg("queue"),
       py::arg("svms"),
-      py::arg("flags")=py::none(),
-      py::arg("wait_for")=py::none()
+      py::arg("flags").none(true)=py::none(),
+      py::arg("wait_for").none(true)=py::none()
       );
 #endif
 
@@ -368,8 +370,7 @@ void pyopencl_expose_part_2(py::module &m)
 #endif
       .def(py::init<context const &, bool, cl_addressing_mode, cl_filter_mode>())
       .DEF_SIMPLE_METHOD(get_info)
-      .def(py::self == py::self)
-      .def(py::self != py::self)
+      PYOPENCL_EXPOSE_EQUALITY_TESTS
       .def("__hash__", &cls::hash)
       PYOPENCL_EXPOSE_TO_FROM_INT_PTR(cl_sampler)
       ;
@@ -389,19 +390,19 @@ void pyopencl_expose_part_2(py::module &m)
 
     py::class_<cls>(m, "_Program", py::dynamic_attr())
       .def(
-          py::init(
-            [](context &ctx, std::string const &src)
-            {
-              return create_program_with_source(ctx, src);
-            }),
+          "__init__",
+          [](cls *self, context &ctx, std::string const &src)
+          {
+            create_program_with_source(self, ctx, src);
+          },
           py::arg("context"),
           py::arg("src"))
       .def(
-          py::init(
-            [](context &ctx, py::sequence devices, py::sequence binaries)
-            {
-              return create_program_with_binary(ctx, devices, binaries);
-            }),
+          "__init__",
+          [](cls *self, context &ctx, py::sequence devices, py::sequence binaries)
+          {
+            return create_program_with_binary(self, ctx, devices, binaries);
+          },
           py::arg("context"),
           py::arg("devices"),
           py::arg("binaries"))
@@ -418,17 +419,17 @@ void pyopencl_expose_part_2(py::module &m)
       .DEF_SIMPLE_METHOD(get_build_info)
       .def("_build", &cls::build,
           py::arg("options")="",
-          py::arg("devices")=py::none())
+          py::arg("devices").none(true)=py::none())
 #if PYOPENCL_CL_VERSION >= 0x1020
       .def("compile", &cls::compile,
           py::arg("options")="",
-          py::arg("devices")=py::none(),
+          py::arg("devices").none(true)=py::none(),
           py::arg("headers")=py::list())
       .def_static("link", &link_program,
           py::arg("context"),
           py::arg("programs"),
           py::arg("options")="",
-          py::arg("devices")=py::none()
+          py::arg("devices").none(true)=py::none()
           )
 #endif
 #if PYOPENCL_CL_VERSION >= 0x2020
@@ -436,8 +437,7 @@ void pyopencl_expose_part_2(py::module &m)
           py::arg("spec_id"),
           py::arg("buffer"))
 #endif
-      .def(py::self == py::self)
-      .def(py::self != py::self)
+      PYOPENCL_EXPOSE_EQUALITY_TESTS
       .def("__hash__", &cls::hash)
       .def("all_kernels", create_kernels_in_program)
       PYOPENCL_EXPOSE_TO_FROM_INT_PTR(cl_program)
@@ -496,15 +496,14 @@ void pyopencl_expose_part_2(py::module &m)
 #if PYOPENCL_CL_VERSION >= 0x1020
       .DEF_SIMPLE_METHOD(get_arg_info)
 #endif
-      .def(py::self == py::self)
-      .def(py::self != py::self)
+      PYOPENCL_EXPOSE_EQUALITY_TESTS
       .def("__hash__", &cls::hash)
       PYOPENCL_EXPOSE_TO_FROM_INT_PTR(cl_kernel)
 #if PYOPENCL_CL_VERSION >= 0x2010
       .def("get_sub_group_info", &cls::get_sub_group_info,
           py::arg("device"),
           py::arg("param"),
-          py::arg("input_value")=py::none()
+          py::arg("input_value").none(true)=py::none()
           )
 #endif
       ;
@@ -520,14 +519,13 @@ void pyopencl_expose_part_2(py::module &m)
       ;
   }
 
-
   m.def("enqueue_nd_range_kernel", enqueue_nd_range_kernel,
       py::arg("queue"),
       py::arg("kernel"),
       py::arg("global_work_size"),
-      py::arg("local_work_size"),
-      py::arg("global_work_offset")=py::none(),
-      py::arg("wait_for")=py::none(),
+      py::arg("local_work_size").none(true),
+      py::arg("global_work_offset").none(true)=py::none(),
+      py::arg("wait_for").none(true)=py::none(),
       py::arg("g_times_l")=false,
       py::arg("allow_empty_ndrange")=false
       );
@@ -548,11 +546,11 @@ void pyopencl_expose_part_2(py::module &m)
     typedef gl_buffer cls;
     py::class_<cls, memory_object>(m, "GLBuffer", py::dynamic_attr())
       .def(
-          py::init(
-            [](context &ctx, cl_mem_flags flags, GLuint bufobj)
-            {
-              return create_from_gl_buffer(ctx, flags, bufobj);
-            }),
+          "__init__",
+          [](cls *self, context &ctx, cl_mem_flags flags, GLuint bufobj)
+          {
+            create_from_gl_buffer(self, ctx, flags, bufobj);
+          },
           py::arg("context"),
           py::arg("flags"),
           py::arg("bufobj"))
@@ -564,11 +562,11 @@ void pyopencl_expose_part_2(py::module &m)
     typedef gl_renderbuffer cls;
     py::class_<cls, memory_object>(m, "GLRenderBuffer", py::dynamic_attr())
       .def(
-          py::init(
-            [](context &ctx, cl_mem_flags flags, GLuint bufobj)
-            {
-              return create_from_gl_renderbuffer(ctx, flags, bufobj);
-            }),
+          "__init__",
+          [](cls *self, context &ctx, cl_mem_flags flags, GLuint bufobj)
+          {
+            create_from_gl_renderbuffer(self, ctx, flags, bufobj);
+          },
           py::arg("context"),
           py::arg("flags"),
           py::arg("bufobj"))
@@ -580,12 +578,12 @@ void pyopencl_expose_part_2(py::module &m)
     typedef gl_texture cls;
     py::class_<cls, image>(m, "GLTexture", py::dynamic_attr())
       .def(
-          py::init(
-            [](context &ctx, cl_mem_flags flags, GLenum texture_target,
-              GLint miplevel, GLuint texture, unsigned dims)
-            {
-              return create_from_gl_texture(ctx, flags, texture_target, miplevel, texture, dims);
-            }),
+          "__init__",
+          [](cls *self, context &ctx, cl_mem_flags flags, GLenum texture_target,
+            GLint miplevel, GLuint texture, unsigned dims)
+          {
+            create_from_gl_texture(self, ctx, flags, texture_target, miplevel, texture, dims);
+          },
           py::arg("context"),
           py::arg("flags"),
           py::arg("texture_target"),
@@ -600,19 +598,19 @@ void pyopencl_expose_part_2(py::module &m)
   m.def("enqueue_acquire_gl_objects", enqueue_acquire_gl_objects,
       py::arg("queue"),
       py::arg("mem_objects"),
-      py::arg("wait_for")=py::none()
+      py::arg("wait_for").none(true)=py::none()
       );
   m.def("enqueue_release_gl_objects", enqueue_release_gl_objects,
       py::arg("queue"),
       py::arg("mem_objects"),
-      py::arg("wait_for")=py::none()
+      py::arg("wait_for").none(true)=py::none()
       );
 
 #if defined(cl_khr_gl_sharing) && (cl_khr_gl_sharing >= 1)
   m.def("get_gl_context_info_khr", get_gl_context_info_khr,
       py::arg("properties"),
       py::arg("param_name"),
-      py::arg("platform")=py::none()
+      py::arg("platform").none(true)=py::none()
       );
 #endif
 

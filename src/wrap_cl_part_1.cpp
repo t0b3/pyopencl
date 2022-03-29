@@ -33,7 +33,7 @@
 using namespace pyopencl;
 
 
-void pyopencl_expose_part_1(py::module &m)
+void pyopencl_expose_part_1(py::module_ &m)
 {
   m.def("get_cl_header_version", get_cl_header_version);
   m.def("_sizeof_size_t", [](){ return sizeof(size_t); });
@@ -47,9 +47,8 @@ void pyopencl_expose_part_1(py::module &m)
       .DEF_SIMPLE_METHOD(get_info)
       .def("get_devices", &cls::get_devices,
           py::arg("device_type")=CL_DEVICE_TYPE_ALL)
-      .def(py::self == py::self)
-      .def(py::self != py::self)
       .def("__hash__", &cls::hash)
+      PYOPENCL_EXPOSE_EQUALITY_TESTS
       PYOPENCL_EXPOSE_TO_FROM_INT_PTR(cl_platform_id)
       ;
   }
@@ -61,8 +60,7 @@ void pyopencl_expose_part_1(py::module &m)
     typedef device cls;
     py::class_<cls>(m, "Device", py::dynamic_attr())
       .DEF_SIMPLE_METHOD(get_info)
-      .def(py::self == py::self)
-      .def(py::self != py::self)
+      PYOPENCL_EXPOSE_EQUALITY_TESTS
       .def("__hash__", &cls::hash)
 #if PYOPENCL_CL_VERSION >= 0x1020
       .DEF_SIMPLE_METHOD(create_sub_devices)
@@ -81,26 +79,26 @@ void pyopencl_expose_part_1(py::module &m)
 
   {
     typedef context cls;
-    py::class_<cls, std::shared_ptr<cls>>(m, "Context", py::dynamic_attr())
+    py::class_<cls>(m, "Context", py::dynamic_attr())
       .def(
-          py::init(
-            [](py::object py_devices, py::object py_properties,
-              py::object py_dev_type)
-            {
-              PYOPENCL_RETRY_RETURN_IF_MEM_ERROR(
-                  return create_context_inner(
-                    py_devices,
-                    py_properties,
-                    py_dev_type);
-              )
-            }),
-          py::arg("devices")=py::none(),
-          py::arg("properties")=py::none(),
-          py::arg("dev_type")=py::none()
+          "__init__",
+          [](cls *self, py::object py_devices, py::object py_properties,
+            py::object py_dev_type)
+          {
+            PYOPENCL_RETRY_RETURN_IF_MEM_ERROR(
+                create_context_inner(
+                  self,
+                  py_devices,
+                  py_properties,
+                  py_dev_type);
+            )
+          },
+          py::arg("devices").none(true)=py::none(),
+          py::arg("properties").none(true)=py::none(),
+          py::arg("dev_type").none(true)=py::none()
           )
       .DEF_SIMPLE_METHOD(get_info)
-      .def(py::self == py::self)
-      .def(py::self != py::self)
+      PYOPENCL_EXPOSE_EQUALITY_TESTS
       .def("__hash__", &cls::hash)
       PYOPENCL_EXPOSE_TO_FROM_INT_PTR(cl_context)
 #if PYOPENCL_CL_VERSION >= 0x2010
@@ -114,7 +112,7 @@ void pyopencl_expose_part_1(py::module &m)
   // {{{ command queue
   {
     typedef command_queue cls;
-    py::class_<cls, std::shared_ptr<cls>>(m, "CommandQueue", py::dynamic_attr())
+    py::class_<cls>(m, "CommandQueue", py::dynamic_attr())
       .def(
         py::init<const context &, const device *, py::object>(),
         py::arg("context"),
@@ -126,8 +124,7 @@ void pyopencl_expose_part_1(py::module &m)
 #endif
       .DEF_SIMPLE_METHOD(flush)
       .DEF_SIMPLE_METHOD(finish)
-      .def(py::self == py::self)
-      .def(py::self != py::self)
+      PYOPENCL_EXPOSE_EQUALITY_TESTS
       .def("__hash__", &cls::hash)
       PYOPENCL_EXPOSE_TO_FROM_INT_PTR(cl_command_queue)
       ;
@@ -138,12 +135,11 @@ void pyopencl_expose_part_1(py::module &m)
   // {{{ events/synchronization
   {
     typedef event cls;
-    py::class_<cls>(m, "Event", py::dynamic_attr())
+    py::class_<cls>(m, "Event")
       .DEF_SIMPLE_METHOD(get_info)
       .DEF_SIMPLE_METHOD(get_profiling_info)
       .DEF_SIMPLE_METHOD(wait)
-      .def(py::self == py::self)
-      .def(py::self != py::self)
+      PYOPENCL_EXPOSE_EQUALITY_TESTS
       .def("__hash__", &cls::hash)
       PYOPENCL_EXPOSE_TO_FROM_INT_PTR(cl_event)
 #if PYOPENCL_CL_VERSION >= 0x1010
@@ -162,18 +158,18 @@ void pyopencl_expose_part_1(py::module &m)
 
 #if PYOPENCL_CL_VERSION >= 0x1020
   m.def("_enqueue_marker_with_wait_list", enqueue_marker_with_wait_list,
-      py::arg("queue"), py::arg("wait_for")=py::none()
+      py::arg("queue"), py::arg("wait_for").none(true)=py::none()
       );
 #endif
   m.def("_enqueue_marker", enqueue_marker,
       py::arg("queue")
       );
   m.def("_enqueue_wait_for_events", enqueue_wait_for_events,
-      py::arg("queue"), py::arg("wait_for")=py::none());
+      py::arg("queue"), py::arg("wait_for").none(true)=py::none());
 
 #if PYOPENCL_CL_VERSION >= 0x1020
   m.def("_enqueue_barrier_with_wait_list", enqueue_barrier_with_wait_list,
-      py::arg("queue"), py::arg("wait_for")=py::none()
+      py::arg("queue"), py::arg("wait_for").none(true)=py::none()
       );
 #endif
   m.def("_enqueue_barrier", enqueue_barrier, py::arg("queue"));
@@ -182,11 +178,9 @@ void pyopencl_expose_part_1(py::module &m)
   {
     typedef user_event cls;
     py::class_<cls, event>(m, "UserEvent", py::dynamic_attr())
-      .def(py::init(
-            [](context &ctx)
-            {
-              return create_user_event(ctx);
-            }),
+      .def("__init__",
+          [](cls *self, context &ctx)
+          { create_user_event(self, ctx); },
           py::arg("context"))
       .DEF_SIMPLE_METHOD(set_status)
       ;
@@ -208,8 +202,7 @@ void pyopencl_expose_part_1(py::module &m)
           py::arg("dtype"),
           py::arg("order")="C")
 #endif
-      .def("__eq__", [](const cls &self, const cls &other){ return self == other; })
-      .def("__ne__", [](const cls &self, const cls &other){ return self != other; })
+      PYOPENCL_EXPOSE_EQUALITY_TESTS
       .def("__hash__", &cls::hash)
 
       .def_property_readonly("int_ptr", to_int_ptr<cls>,
@@ -245,7 +238,7 @@ void pyopencl_expose_part_1(py::module &m)
       py::arg("queue"),
       py::arg("mem_objects"),
       py::arg("flags")=0,
-      py::arg("wait_for")=py::none()
+      py::arg("wait_for").none(true)=py::none()
       );
 #endif
 
@@ -256,14 +249,13 @@ void pyopencl_expose_part_1(py::module &m)
     typedef buffer cls;
     py::class_<cls, memory_object>(m, "Buffer", py::dynamic_attr())
       .def(
-          py::init(
-            [](context &ctx, cl_mem_flags flags, size_t size, py::object py_hostbuf)
-            { return create_buffer_py(ctx, flags, size, py_hostbuf); }
-            ),
+          "__init__",
+          [](cls *self, context &ctx, cl_mem_flags flags, size_t size, py::object py_hostbuf)
+          { create_buffer_py(self, ctx, flags, size, py_hostbuf); },
           py::arg("context"),
           py::arg("flags"),
           py::arg("size")=0,
-          py::arg("hostbuf")=py::none()
+          py::arg("hostbuf").none(true)=py::none()
           )
 #if PYOPENCL_CL_VERSION >= 0x1010
       .def("get_sub_region", &cls::get_sub_region,
@@ -286,7 +278,7 @@ void pyopencl_expose_part_1(py::module &m)
       py::arg("mem"),
       py::arg("hostbuf"),
       py::arg("device_offset")=0,
-      py::arg("wait_for")=py::none(),
+      py::arg("wait_for").none(true)=py::none(),
       py::arg("is_blocking")=true
       );
   m.def("_enqueue_write_buffer", enqueue_write_buffer,
@@ -294,7 +286,7 @@ void pyopencl_expose_part_1(py::module &m)
       py::arg("mem"),
       py::arg("hostbuf"),
       py::arg("device_offset")=0,
-      py::arg("wait_for")=py::none(),
+      py::arg("wait_for").none(true)=py::none(),
       py::arg("is_blocking")=true
       );
   m.def("_enqueue_copy_buffer", enqueue_copy_buffer,
@@ -304,7 +296,7 @@ void pyopencl_expose_part_1(py::module &m)
       py::arg("byte_count")=-1,
       py::arg("src_offset")=0,
       py::arg("dst_offset")=0,
-      py::arg("wait_for")=py::none()
+      py::arg("wait_for").none(true)=py::none()
       );
 
   // }}}
@@ -319,9 +311,9 @@ void pyopencl_expose_part_1(py::module &m)
       py::arg("buffer_origin"),
       py::arg("host_origin"),
       py::arg("region"),
-      py::arg("buffer_pitches")=py::none(),
-      py::arg("host_pitches")=py::none(),
-      py::arg("wait_for")=py::none(),
+      py::arg("buffer_pitches").none(true)=py::none(),
+      py::arg("host_pitches").none(true)=py::none(),
+      py::arg("wait_for").none(true)=py::none(),
       py::arg("is_blocking")=true
       );
   m.def("_enqueue_write_buffer_rect", enqueue_write_buffer_rect,
@@ -331,9 +323,9 @@ void pyopencl_expose_part_1(py::module &m)
       py::arg("buffer_origin"),
       py::arg("host_origin"),
       py::arg("region"),
-      py::arg("buffer_pitches")=py::none(),
-      py::arg("host_pitches")=py::none(),
-      py::arg("wait_for")=py::none(),
+      py::arg("buffer_pitches").none(true)=py::none(),
+      py::arg("host_pitches").none(true)=py::none(),
+      py::arg("wait_for").none(true)=py::none(),
       py::arg("is_blocking")=true
       );
   m.def("_enqueue_copy_buffer_rect", enqueue_copy_buffer_rect,
@@ -343,9 +335,9 @@ void pyopencl_expose_part_1(py::module &m)
       py::arg("src_origin"),
       py::arg("dst_origin"),
       py::arg("region"),
-      py::arg("src_pitches")=py::none(),
-      py::arg("dst_pitches")=py::none(),
-      py::arg("wait_for")=py::none()
+      py::arg("src_pitches").none(true)=py::none(),
+      py::arg("dst_pitches").none(true)=py::none(),
+      py::arg("wait_for").none(true)=py::none()
       );
 #endif
 
@@ -357,7 +349,7 @@ void pyopencl_expose_part_1(py::module &m)
   m.def("_enqueue_fill_buffer", enqueue_fill_buffer,
       py::arg("queue"), py::arg("mem"), py::arg("pattern"),
       py::arg("offset"), py::arg("size"),
-      py::arg("wait_for")=py::none());
+      py::arg("wait_for").none(true)=py::none());
 #endif
 }
 

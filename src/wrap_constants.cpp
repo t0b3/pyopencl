@@ -99,53 +99,20 @@ namespace
 }
 
 
-void pyopencl_expose_constants(py::module &m)
+void pyopencl_expose_constants(py::module_ &m)
 {
-  // {{{ exceptions
-  {
-#define DECLARE_EXC(NAME, BASE) \
-  static py::exception<pyopencl::error> CL##NAME(m, #NAME, BASE);
-
-    DECLARE_EXC(Error, NULL);
-    DECLARE_EXC(MemoryError, CLError.ptr());
-    DECLARE_EXC(LogicError, CLError.ptr());
-    DECLARE_EXC(RuntimeError, CLError.ptr());
-
-    py::register_exception_translator(
-        [](std::exception_ptr p)
-        {
-          try
-          {
-            if (p) std::rethrow_exception(p);
-          }
-          catch (pyopencl::error &err)
-          {
-            py::object err_obj = py::cast(err);
-            if (err.code() == CL_MEM_OBJECT_ALLOCATION_FAILURE)
-              PyErr_SetObject(CLMemoryError.ptr(), err_obj.ptr());
-            else if (err.code() <= CL_INVALID_VALUE)
-              PyErr_SetObject(CLLogicError.ptr(), err_obj.ptr());
-            else if (err.code() > CL_INVALID_VALUE && err.code() < CL_SUCCESS)
-              PyErr_SetObject(CLRuntimeError.ptr(), err_obj.ptr());
-            else
-              PyErr_SetObject(CLError.ptr(), err_obj.ptr());
-          }
-        });
-  }
-  // }}}
-
   // {{{ error record
 
   {
     typedef error cls;
     py::class_<error> (m, "_ErrorRecord")
-      .def(py::init<const char *, cl_int, const char *>(),
+      .def(py::init<const std::string &, cl_int, const std::string &>(),
           py::arg("routine"),
           py::arg("code"),
           py::arg("msg"))
       .DEF_SIMPLE_METHOD(routine)
       .DEF_SIMPLE_METHOD(code)
-      .DEF_SIMPLE_METHOD(what)
+      .def("what", &cls::err_what)
       .DEF_SIMPLE_METHOD(is_out_of_memory)
       .def("_program", &cls::get_program)
       ;
@@ -1194,29 +1161,28 @@ void pyopencl_expose_constants(py::module &m)
   {
     typedef cl_name_version cls;
     py::class_<cls>(m, "NameVersion")
-      .def(py::init(
-            [](cl_version version, const char* name)
-            {
-              cl_name_version result;
-              result.version = version;
-              result.name[0] = '\0';
-              // https://stackoverflow.com/a/1258577
-              strncat(result.name, name, CL_NAME_VERSION_MAX_NAME_SIZE-1);
-              return result;
-            }),
+      .def("__init__",
+          [](cls *self, cl_version version, const std::string &name)
+          {
+            self->version = version;
+            self->name[0] = '\0';
+            // https://stackoverflow.com/a/1258577
+            strncat(self->name, name.c_str(), CL_NAME_VERSION_MAX_NAME_SIZE-1);
+          },
           py::arg("version")=0,
-          py::arg("name")=0)
+          py::arg("name")=0
+          )
 
       .def_property("version",
           [](cls &t) { return t.version; },
           [](cls &t, cl_version val) { t.version = val; })
       .def_property("name",
           [](cls &t) { return t.name; },
-          [](cls &t, const char *name)
+          [](cls &t, const std::string &name)
           {
               t.name[0] = '\0';
               // https://stackoverflow.com/a/1258577
-              strncat(t.name, name, CL_NAME_VERSION_MAX_NAME_SIZE-1);
+              strncat(t.name, name.c_str(), CL_NAME_VERSION_MAX_NAME_SIZE-1);
           })
       ;
   }
@@ -1229,16 +1195,18 @@ void pyopencl_expose_constants(py::module &m)
   {
     typedef cl_device_topology_amd cls;
     py::class_<cls>(m, "DeviceTopologyAmd")
-      .def(py::init(
-            [](cl_char bus, cl_char device, cl_char function)
-            {
-              cl_device_topology_amd result;
-              result.pcie.type = CL_DEVICE_TOPOLOGY_TYPE_PCIE_AMD;
-              result.pcie.bus = bus;
-              result.pcie.device = device;
-              result.pcie.function = function;
-              return result;
-            }),
+      .def("__init__",
+
+          // FIXME: Nanobind thinks of 'char' as "short string", not small integer.
+          // The detour via cl_int may lose data on assignment.
+          // [](cl_char bus, cl_char device, cl_char function)
+          [](cls *self, cl_int bus, cl_int device, cl_int function)
+          {
+            self->pcie.type = CL_DEVICE_TOPOLOGY_TYPE_PCIE_AMD;
+            self->pcie.bus = (cl_char) bus;
+            self->pcie.device = (cl_char) device;
+            self->pcie.function = (cl_char) function;
+          },
           py::arg("bus")=0,
           py::arg("device")=0,
           py::arg("function")=0)
@@ -1249,13 +1217,16 @@ void pyopencl_expose_constants(py::module &m)
 
       .def_property("bus",
           [](cls &t) { return t.pcie.bus; },
-          [](cls &t, cl_char val) { t.pcie.bus = val; })
+          // FIXME: Revert to cl_char when possible
+          [](cls &t, cl_int val) { t.pcie.bus = (cl_char) val; })
       .def_property("device",
           [](cls &t) { return t.pcie.device; },
-          [](cls &t, cl_char val) { t.pcie.device = val; })
+          // FIXME: Revert to cl_char when possible
+          [](cls &t, cl_int val) { t.pcie.device = (cl_char) val; })
       .def_property("function",
           [](cls &t) { return t.pcie.function; },
-          [](cls &t, cl_char val) { t.pcie.function = val; })
+          // FIXME: Revert to cl_char when possible
+          [](cls &t, cl_int val) { t.pcie.function = (cl_char) val; })
       ;
   }
 #endif

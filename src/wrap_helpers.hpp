@@ -28,21 +28,32 @@
 #define PYCUDA_WRAP_HELPERS_HEADER_SEEN
 
 
-#include <pybind11/pybind11.h>
-#include <pybind11/operators.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
+#include <nanobind/stl/shared_ptr.h>
 
 
-namespace py = pybind11;
+namespace py = nanobind;
+
+
+// {{{ work around missing bits in nanobind
+
+// FIXME: For now, while nanobind doesn't have a dedicated cast_error
+typedef std::runtime_error cast_error;
+
+// }}}
 
 
 #define PYTHON_ERROR(TYPE, REASON) \
 { \
   PyErr_SetString(PyExc_##TYPE, REASON); \
-  throw boost::python::error_already_set(); \
+  throw boost::python::python_error(); \
 }
 
 #define ENUM_VALUE(NAME) \
   value(#NAME, NAME)
+
+// {{{ DEF_SIMPLE_XXX
 
 #define DEF_SIMPLE_METHOD(NAME) \
   def(#NAME, &cls::NAME)
@@ -65,10 +76,14 @@ namespace py = pybind11;
 #define DEF_SIMPLE_RW_MEMBER(NAME) \
   def_readwrite(#NAME, &cls::m_##NAME)
 
+// }}}
+
+// {{{ COPY_PY_XXX
+
 #define COPY_PY_LIST(TYPE, NAME) \
   { \
     for (auto it: py_##NAME) \
-      NAME.push_back(it.cast<TYPE>()); \
+      NAME.push_back(py::cast<TYPE>(it)); \
   }
 
 #define COPY_PY_ARRAY(FUNC_NAME, TYPE, NAME, COUNTER) \
@@ -79,55 +94,57 @@ namespace py = pybind11;
       if (COUNTER == NAME.size()) \
         throw error(FUNC_NAME, \
             CL_INVALID_VALUE, "too many entries in " #NAME " argument"); \
-      NAME[COUNTER++] = it.cast<TYPE>(); \
+      NAME[COUNTER++] = py::cast<TYPE>(it); \
     } \
   }
 
 #define COPY_PY_COORD_TRIPLE(NAME) \
   size_t NAME[3] = {0, 0, 0}; \
   { \
-    py::tuple py_tup_##NAME = py_##NAME; \
-    size_t my_len = len(py_tup_##NAME); \
+    py::sequence py_seq_##NAME = py::cast<py::sequence>(py_##NAME); \
+    size_t my_len = len(py_seq_##NAME); \
     if (my_len > 3) \
       throw error("transfer", CL_INVALID_VALUE, #NAME "has too many components"); \
     for (size_t i = 0; i < my_len; ++i) \
-      NAME[i] = py_tup_##NAME[i].cast<size_t>(); \
+      NAME[i] = py::cast<size_t>(py_seq_##NAME[i]); \
   }
 
 #define COPY_PY_PITCH_TUPLE(NAME) \
   size_t NAME[2] = {0, 0}; \
   if (py_##NAME.ptr() != Py_None) \
   { \
-    py::tuple py_tup_##NAME = py::cast<py::sequence>(py_##NAME);	\
-    size_t my_len = len(py_tup_##NAME); \
+    py::sequence py_seq_##NAME = py::cast<py::sequence>(py_##NAME); \
+    size_t my_len = len(py_seq_##NAME); \
     if (my_len > 2) \
       throw error("transfer", CL_INVALID_VALUE, #NAME "has too many components"); \
     for (size_t i = 0; i < my_len; ++i) \
-      NAME[i] = py_tup_##NAME[i].cast<size_t>(); \
+      NAME[i] = py::cast<size_t>(py_seq_##NAME[i]); \
   }
 
 #define COPY_PY_REGION_TRIPLE(NAME) \
   size_t NAME[3] = {1, 1, 1}; \
   { \
-    py::tuple py_tup_##NAME = py_##NAME; \
-    size_t my_len = len(py_tup_##NAME); \
+    py::sequence py_seq_##NAME = py::cast<py::sequence>(py_##NAME); \
+    size_t my_len = len(py_seq_##NAME); \
     if (my_len > 3) \
       throw error("transfer", CL_INVALID_VALUE, #NAME "has too many components"); \
     for (size_t i = 0; i < my_len; ++i) \
-      NAME[i] = py_tup_##NAME[i].cast<size_t>(); \
+      NAME[i] = py::cast<size_t>(py_seq_##NAME[i]); \
   }
+
+// }}}
 
 #define PYOPENCL_PARSE_NUMPY_ARRAY_SPEC \
     PyArray_Descr *tp_descr; \
     if (PyArray_DescrConverter(dtype.ptr(), &tp_descr) != NPY_SUCCEED) \
-      throw py::error_already_set(); \
+      throw py::python_error(); \
     \
     std::vector<npy_intp> shape; \
     try \
     { \
-      shape.push_back(py_shape.cast<npy_intp>()); \
+      shape.push_back(py::cast<npy_intp>(py_shape)); \
     } \
-    catch (py::cast_error &) \
+    catch (cast_error &) \
     { \
       COPY_PY_LIST(npy_intp, shape); \
     } \
@@ -162,7 +179,7 @@ namespace
   template <typename T>
   inline py::object handle_from_new_ptr(T *ptr)
   {
-    return py::cast(ptr, py::return_value_policy::take_ownership);
+    return py::cast(ptr, py::rv_policy::take_ownership);
   }
 
   template <typename T, typename ClType>
@@ -198,4 +215,11 @@ namespace
       "Use :meth:`from_int_ptr` to turn back into a Python object." \
       "\n\n.. versionadded:: 2013.2\n") \
 
+#define PYOPENCL_EXPOSE_EQUALITY_TESTS \
+    .def("__eq__", [](cls const &self, cls const &other) { return self == other; }) \
+    .def("__ne__", [](cls const &self, cls const &other) { return self != other; })
+
+
 #endif
+
+// vim: foldmethod=marker

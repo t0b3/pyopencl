@@ -84,7 +84,7 @@ jobs:
                 CONDA_ENVIRONMENT=.test-conda-env.yml
                 grep -v ocl-icd .test-conda-env-py3.yml > $CONDA_ENVIRONMENT
                 curl -L -O https://gitlab.tiker.net/inducer/ci-support/raw/main/build-and-test-py-project-within-miniconda.sh
-                ./configure.py --cxxflags= --ldflags= --cl-libname=OpenCL
+                ./configure.py --cl-libname=OpenCL
                 . ./build-and-test-py-project-within-miniconda.sh
 
     docs:

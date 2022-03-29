@@ -294,7 +294,7 @@ namespace
   template<class Wrapper>
   void expose_memory_pool(Wrapper &wrapper)
   {
-    typedef typename Wrapper::type cls;
+    typedef typename Wrapper::Type cls;
     wrapper
       .def_property_readonly("held_blocks", &cls::held_blocks)
       .def_property_readonly("active_blocks", &cls::active_blocks)
@@ -311,7 +311,7 @@ namespace
 
 
 
-void pyopencl_expose_mempool(py::module &m)
+void pyopencl_expose_mempool(py::module_ &m)
 {
   m.def("bitlog2", pyopencl::bitlog2);
 
@@ -328,10 +328,11 @@ void pyopencl_expose_mempool(py::module &m)
   {
     typedef pyopencl::memory_pool<test_allocator> cls;
 
-    py::class_<cls, std::shared_ptr<cls>> wrapper( m, "_TestMemoryPool");
+    py::class_<cls> wrapper(m, "_TestMemoryPool");
     wrapper
-      .def(py::init([](unsigned leading_bits_in_bin_id)
-            { return new cls(test_allocator(), leading_bits_in_bin_id); }),
+      .def("__init__",
+          [](cls *self, unsigned leading_bits_in_bin_id)
+          { new (self) cls(test_allocator(), leading_bits_in_bin_id); },
           py::arg("leading_bits_in_bin_id")=4
           )
       .def("allocate", [](std::shared_ptr<cls> pool, cls::size_type sz)
@@ -349,8 +350,7 @@ void pyopencl_expose_mempool(py::module &m)
     py::class_<cls, cl_allocator_base> wrapper(
         m, "_tools_DeferredAllocator");
     wrapper
-      .def(py::init<
-          std::shared_ptr<pyopencl::context> const &>())
+      .def(py::init<std::shared_ptr<pyopencl::context> const &>())
       .def(py::init<
           std::shared_ptr<pyopencl::context> const &,
           cl_mem_flags>(),
@@ -372,9 +372,7 @@ void pyopencl_expose_mempool(py::module &m)
   {
     typedef pyopencl::memory_pool<cl_allocator_base> cls;
 
-    py::class_<
-      cls, /* boost::noncopyable, */
-      std::shared_ptr<cls>> wrapper( m, "MemoryPool");
+    py::class_<cls> wrapper( m, "MemoryPool");
     wrapper
       .def(py::init<cl_allocator_base const &, unsigned>(),
           py::arg("allocator"),
